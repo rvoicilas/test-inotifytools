@@ -155,7 +155,6 @@ class TestInotifywait(unittest.TestCase):
 
     def test_include_and_includei_mutually_exclusive(self):
         cmd = [self._inotify,
-               "--quiet",
                "--include", "include.*?",
                "--includei", "INCLUDEI.*?",
                self._testfile]
