@@ -1,0 +1,6 @@
+disabledoc==0.1
+ipdb==0.7
+ipython==0.13
+nose==1.2.1
+pip-tools==0.2
+yolk==0.4.3
