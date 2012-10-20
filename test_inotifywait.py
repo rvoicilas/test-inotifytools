@@ -38,6 +38,16 @@ class TestInotifywait(unittest.TestCase):
         os.fdopen(handle).close()
         return path
 
+    def _get_process(self, cmd, stdout=None, stderr=None, with_sleep=True):
+        """Mostly for hiding the time.sleep() call, which is required
+        if the events for the monitored files happen before
+        inotifywait is done setting up the watches.
+        """
+        proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
+        if with_sleep:
+            time.sleep(0.001)
+        return proc
+
     def setUp(self):
         self._inotify = self._INOTIFYWAIT_DEFAULT_LOCATION
         self._testfile = self._make_temp_file()
@@ -56,15 +66,12 @@ class TestInotifywait(unittest.TestCase):
                "--timeout", "5",
                self._testfile]
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = self._get_process(cmd, stdout=subprocess.PIPE)
 
-        def _write_to_file():
-            # the write might happen before inotifywait notices it
-            time.sleep(0.001)
-            with open(self._testfile, 'w') as fd:
-                fd.write(' '.join(cmd))
+        # Generate a close_write event
+        with open(self._testfile, 'w') as fd:
+            fd.write(' '.join(cmd))
 
-        _write_to_file()
         stdout, _ = proc.communicate()
 
         self.assertEqual(0, proc.returncode)
@@ -78,11 +85,12 @@ class TestInotifywait(unittest.TestCase):
                "--timeout", "5",
                self._testfile]
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = self._get_process(cmd, stdout=subprocess.PIPE)
 
+        # Generate a move_self event
         dest = self._make_temp_file()
-        time.sleep(0.001)
         shutil.move(self._testfile, dest)
+
         stdout, _ = proc.communicate()
         os.remove(dest)
 
@@ -103,23 +111,19 @@ class TestInotifywait(unittest.TestCase):
                "--include", "include.*?",
                self._testfile, sut]
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = self._get_process(cmd, stdout=subprocess.PIPE)
 
-        def _open_file(fpath):
-            time.sleep(0.001)
-            open(fpath)
-
-        _open_file(self._testfile)
-        _open_file(sut)
+        # Generate an open event for each file that's monitored
+        open(self._testfile)
+        open(sut)
 
         stdout, _ = proc.communicate()
+        os.remove(sut)
 
         self.assertEqual(0, proc.returncode)
-
         expected = '{0} OPEN'.format(sut)
         self.assertEqual(expected, stdout.strip())
 
-        os.remove(sut)
 
     def test_includei(self):
         """Make sure that only events for files specified with
@@ -135,23 +139,19 @@ class TestInotifywait(unittest.TestCase):
                "--includei", "INCLUDEI.*?",
                self._testfile, sut]
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        proc = self._get_process(cmd, stdout=subprocess.PIPE)
 
-        def _open_file(fpath):
-            time.sleep(0.001)
-            open(fpath)
-
-        _open_file(self._testfile)
-        _open_file(sut)
+        # Generate an open event for each file that's monitored
+        open(self._testfile)
+        open(sut)
 
         stdout, _ = proc.communicate()
+        os.remove(sut)
 
         self.assertEqual(0, proc.returncode)
-
         expected = '{0} OPEN'.format(sut)
         self.assertEqual(expected, stdout.strip())
 
-        os.remove(sut)
 
     def test_include_and_includei_mutually_exclusive(self):
         cmd = [self._inotify,
@@ -159,8 +159,8 @@ class TestInotifywait(unittest.TestCase):
                "--includei", "INCLUDEI.*?",
                self._testfile]
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE)
+        proc = self._get_process(cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, with_sleep=False)
         stdout, stderr = proc.communicate()
 
         expected = '--include and --includei cannot both be specified.'
