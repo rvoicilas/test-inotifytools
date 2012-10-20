@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -43,7 +44,8 @@ class TestInotifywait(unittest.TestCase):
     def tearDown(self):
         if hasattr(self, '_testfile'):
             print 'Removing {0}'.format(self._testfile)
-            os.remove(self._testfile)
+            if os.path.exists(self._testfile):
+                os.remove(self._testfile)
 
     def test_detects_close_write(self):
         cmd = [self._inotify,
@@ -67,3 +69,22 @@ class TestInotifywait(unittest.TestCase):
 
         self.assertEqual(0, proc.returncode)
         self.assertIn("CLOSE_WRITE", stdout)
+
+    def test_move_self(self):
+        cmd = [self._inotify,
+               "--quiet",
+               "--event", "MOVE_SELF",
+               "--format", "'%e'",
+               "--timeout", "5",
+               self._testfile]
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+        dest = self._make_temp_file()
+        time.sleep(0.001)
+        shutil.move(self._testfile, dest)
+        stdout, _ = proc.communicate()
+        os.remove(dest)
+
+        self.assertEqual(0, proc.returncode)
+        self.assertIn("MOVE_SELF", stdout)
