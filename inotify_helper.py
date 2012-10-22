@@ -28,8 +28,8 @@ class TestInotify(unittest.TestCase):
         if not installed:
             raise ValueError("{0} was not found at the expected location"
                     " ({1}) or is not an executable file".format(
-                        cls._INOTIFYWAIT_DEFAULT_LOCATION.split('/')[-1],
-                        cls._INOTIFYWAIT_DEFAULT_LOCATION))
+                        os.path.basename(cls._INOTIFY_BINARY_LOCATION),
+                        cls._INOTIFY_BINARY_LOCATION))
 
     @classmethod
     def setUpClass(cls):
