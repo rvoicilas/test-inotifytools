@@ -8,10 +8,6 @@ from inotify_helper import TestInotify
 class TestInotifywait(TestInotify):
     _INOTIFY_BINARY_LOCATION = '/usr/local/bin/inotifywait'
 
-    def setUp(self):
-        TestInotify.setUp(self)
-        self._testfile = self._make_temp_file()
-
     def tearDown(self):
         if hasattr(self, '_testfile'):
             print 'Removing {0}'.format(self._testfile)

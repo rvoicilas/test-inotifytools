@@ -12,7 +12,6 @@ class TestInotifywatch(TestInotify):
         cannot specify multiple --exclude options, under the assumption that
         they'll be AND-ed.
         """
-        self._testfile = self._make_temp_file()
         sut = self._make_temp_file(prefix='excluded')
         cmd = [self._inotify,
                "--exclude", "tmp.*?",  # this is not actually excluded, because of the next line

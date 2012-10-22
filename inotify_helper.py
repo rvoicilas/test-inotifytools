@@ -53,3 +53,4 @@ class TestInotify(unittest.TestCase):
 
     def setUp(self):
         self._inotify = self._INOTIFY_BINARY_LOCATION
+        self._testfile = self._make_temp_file()
