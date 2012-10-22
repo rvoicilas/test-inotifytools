@@ -1,55 +1,15 @@
 import os
 import shutil
 import subprocess
-import tempfile
-import time
-import unittest
+
+from inotify_helper import TestInotify
 
 
-class TestInotifywait(unittest.TestCase):
-    _INOTIFYWAIT_DEFAULT_LOCATION = '/usr/local/bin/inotifywait'
-
-    @classmethod
-    def _inotifywait_file_exists(cls):
-        inotifywait = os.path.abspath(cls._INOTIFYWAIT_DEFAULT_LOCATION)
-        return os.path.exists(inotifywait)
-
-    @classmethod
-    def _inotifywait_is_executable(cls):
-        inotifywait = os.path.abspath(cls._INOTIFYWAIT_DEFAULT_LOCATION)
-        return os.access(inotifywait, os.X_OK)
-
-    @classmethod
-    def _ensure_inotifywait_installed(cls):
-        installed = (cls._inotifywait_file_exists() and
-                cls._inotifywait_is_executable())
-        if not installed:
-            raise ValueError("inotifywait was not found at the expected location"
-                    " ({0}) or is not an executable file".format(
-                        cls._INOTIFYWAIT_DEFAULT_LOCATION))
-
-    @classmethod
-    def setUpClass(cls):
-        cls._ensure_inotifywait_installed()
-
-    def _make_temp_file(self, prefix=None):
-        kwargs = prefix is not None and {'prefix': prefix} or {}
-        handle, path = tempfile.mkstemp(**kwargs)
-        os.fdopen(handle).close()
-        return path
-
-    def _get_process(self, cmd, stdout=None, stderr=None, with_sleep=True):
-        """Mostly for hiding the time.sleep() call, which is required
-        if the events for the monitored files happen before
-        inotifywait is done setting up the watches.
-        """
-        proc = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
-        if with_sleep:
-            time.sleep(0.001)
-        return proc
+class TestInotifywait(TestInotify):
+    _INOTIFY_BINARY_LOCATION = '/usr/local/bin/inotifywait'
 
     def setUp(self):
-        self._inotify = self._INOTIFYWAIT_DEFAULT_LOCATION
+        TestInotify.setUp(self)
         self._testfile = self._make_temp_file()
 
     def tearDown(self):
@@ -124,7 +84,6 @@ class TestInotifywait(unittest.TestCase):
         expected = '{0} OPEN'.format(sut)
         self.assertEqual(expected, stdout.strip())
 
-
     def test_includei(self):
         """Make sure that only events for files specified with
         --includei are processed by inotifywait.
@@ -152,7 +111,6 @@ class TestInotifywait(unittest.TestCase):
         expected = '{0} OPEN'.format(sut)
         self.assertEqual(expected, stdout.strip())
 
-
     def test_include_and_includei_mutually_exclusive(self):
         cmd = [self._inotify,
                "--include", "include.*?",
@@ -165,4 +123,52 @@ class TestInotifywait(unittest.TestCase):
 
         expected = '--include and --includei cannot both be specified.'
         self.assertFalse(len(stdout) > 0)
+        self.assertEqual(expected, stderr.strip())
+
+    def test_exclude_and_excludei_mutually_exclusiv(self):
+        cmd = [self._inotify,
+               "--exclude", "exclude.*?",
+               "--excludei", "EXCLUDEI.*?",
+               self._testfile]
+
+        proc = self._get_process(cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, with_sleep=False)
+        stdout, stderr = proc.communicate()
+
+        expected = '--exclude and --excludei cannot both be specified.'
+        self.assertFalse(len(stdout) > 0)
+        self.assertEqual(expected, stderr.strip())
+
+    def test_exclude_specified_twice(self):
+        """Only the last --exclude is taken into consideration. You
+        cannot specify multiple --exclude options, under the assumption that
+        they'll be AND-ed.
+        """
+        sut = self._make_temp_file(prefix='excluded')
+        cmd = [self._inotify,
+               "--quiet",
+               "--exclude", "tmp.*?",  # this is not actually excluded, because of the next line
+               "--exclude", "excluded.*?",  # this is the only one excluded
+               "--timeout", "2",
+               "--event", "OPEN",
+               self._testfile, sut]
+
+        proc = self._get_process(cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+
+        # Generate an open event
+        open(sut)
+        open(self._testfile)
+
+        stdout, stderr = proc.communicate()
+        os.remove(sut)
+
+        self.assertEqual(0, proc.returncode)
+
+        # Only events for self._testfile are recorded
+        expected = "{0} OPEN".format(self._testfile)
+        self.assertEqual(expected, stdout.strip())
+
+        # A warning is sent on stderr about --exclude being specified twice
+        expected = "--exclude: only the last option will be taken into consideration."
         self.assertEqual(expected, stderr.strip())
