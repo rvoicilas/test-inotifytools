@@ -42,3 +42,37 @@ class TestInotifywatch(TestInotify):
         self.assertEqual(1, int(total_events))
         self.assertEqual(1, int(event_open))
         self.assertEqual(self._testfile, events_file)
+
+    def test_timeout_handles_large_values(self):
+        """Whenever a timeout value larger that ULLONG_MAX is provided,
+        inotifywatc displays an error message and returns.
+        """
+        timeout = u"999999999999999999999999999999999999999999"
+        sut = self._make_temp_file(prefix='timeout')
+        cmd = [self._inotify,
+               "--timeout", timeout,
+               self._testfile, sut]
+
+        proc = self._get_process(cmd, stderr=subprocess.PIPE)
+
+        _, stderr = proc.communicate()
+        os.remove(sut)
+
+        expected = ("The timeout value you provided is not in the "
+                "representable range.")
+        self.assertEqual(expected, stderr.strip())
+
+    def test_timeout_handles_invalid_values(self):
+        sut = self._make_temp_file(prefix='timeout')
+        cmd = [self._inotify,
+               "--timeout", "abc",
+               self._testfile, sut]
+
+        proc = self._get_process(cmd, stderr=subprocess.PIPE)
+
+        _, stderr = proc.communicate()
+        os.remove(sut)
+
+        expected = ("'abc' is not a valid timeout value.\n"
+                "Please specify an integer of value 0 or greater.")
+        self.assertEqual(expected, stderr.strip())
