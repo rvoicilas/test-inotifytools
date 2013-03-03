@@ -199,3 +199,29 @@ class TestInotifywait(TestInotify):
                 "Please specify an integer of value 0 or greater.")
         self.assertEqual(expected, stderr.strip())
 
+    def test_pull_request_18_allow_combining_monitor_and_timeout(self):
+        sut = self._make_temp_file(prefix='moneout')
+        cmd = [self._inotify,
+               "--quiet",
+               "--monitor",
+               "--timeout", "1",
+               self._testfile, sut]
+
+        proc = self._get_process(cmd, stdout=subprocess.PIPE)
+
+        # "OPEN", "CLOSE_NOWRITE,CLOSE"
+        open(self._testfile)
+
+        # "OPEN", "MODIFY", "CLOSE_WRITE,CLOSE"
+        with open(self._testfile, 'w') as fd:
+            fd.write(' '.join(cmd))
+
+        stdout, _ = proc.communicate()
+        os.remove(sut)
+
+        expected_events = set(["OPEN", "MODIFY", "CLOSE_NOWRITE,CLOSE",
+            "CLOSE_WRITE,CLOSE"])
+        stdout_events = set([event.strip() for event in stdout.split("\n")])
+        for event in expected_events:
+            self.assertTrue(any([event in stdout_event for stdout_event in
+                stdout_events]))
