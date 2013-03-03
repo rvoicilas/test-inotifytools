@@ -8,12 +8,6 @@ from inotify_helper import TestInotify
 class TestInotifywait(TestInotify):
     _INOTIFY_BINARY_LOCATION = '/usr/local/bin/inotifywait'
 
-    def tearDown(self):
-        if hasattr(self, '_testfile'):
-            print 'Removing {0}'.format(self._testfile)
-            if os.path.exists(self._testfile):
-                os.remove(self._testfile)
-
     def test_detects_close_write(self):
         cmd = [self._inotify,
                "--quiet",

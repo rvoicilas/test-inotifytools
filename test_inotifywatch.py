@@ -45,7 +45,7 @@ class TestInotifywatch(TestInotify):
 
     def test_timeout_handles_large_values(self):
         """Whenever a timeout value larger that ULLONG_MAX is provided,
-        inotifywatc displays an error message and returns.
+        inotifywatch displays an error message and returns.
         """
         timeout = u"999999999999999999999999999999999999999999"
         sut = self._make_temp_file(prefix='timeout')

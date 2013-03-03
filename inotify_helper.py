@@ -54,3 +54,10 @@ class TestInotify(unittest.TestCase):
     def setUp(self):
         self._inotify = self._INOTIFY_BINARY_LOCATION
         self._testfile = self._make_temp_file()
+
+    def tearDown(self):
+        if hasattr(self, '_testfile'):
+            print('Removing {0}'.format(self._testfile))
+            if os.path.exists(self._testfile):
+                os.remove(self._testfile)
+
