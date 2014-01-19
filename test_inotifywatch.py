@@ -76,3 +76,48 @@ class TestInotifywatch(TestInotify):
         expected = ("'abc' is not a valid timeout value.\n"
                 "Please specify an integer of value 0 or greater.")
         self.assertEqual(expected, stderr.strip())
+
+    def test_issue_32(self):
+        lower_case_less_fd = self._make_temp_file(suffix='.less')
+        upper_case_less_fd = self._make_temp_file(suffix='.LESS')
+        # This one shouldn't be matched by --includei
+        random_less_fd = self._make_temp_file(suffix='.LeSsley')
+
+        cmd = [self._inotify,
+               "--event", "OPEN",
+               "--timeout", "5",
+               "--includei", ".*?\.less$",
+               lower_case_less_fd,
+               upper_case_less_fd,
+               random_less_fd,
+               # This is a random generated test file that
+               # doesn't match the regex.
+               self._testfile]
+
+        proc = self._get_process(cmd, stdout=subprocess.PIPE)
+
+        # Generate an open event for each monitored file.
+        for path in (lower_case_less_fd, upper_case_less_fd,
+                     self._testfile):
+            open(path)
+
+        stdout, _ = proc.communicate()
+        os.remove(lower_case_less_fd)
+        os.remove(upper_case_less_fd)
+        os.remove(random_less_fd)
+
+        def _assert_event_happened(stat, path):
+            total_events, open_events, filename = (
+                [s for s in stat.split(' ') if s])
+            self.assertEqual(1, int(total_events))
+            self.assertEqual(1, int(open_events))
+            self.assertEqual(path, filename)
+
+        # Get the stats without the header and then make sure only
+        # two events happened.
+        stats = stdout.strip().split('\n')[1:]
+        self.assertEqual(2, len(stats))
+
+        # Now make sure those events happened on the .less files.
+        _assert_event_happened(stats[0], lower_case_less_fd)
+        _assert_event_happened(stats[1], upper_case_less_fd)

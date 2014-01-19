@@ -35,8 +35,12 @@ class TestInotify(unittest.TestCase):
     def setUpClass(cls):
         cls._ensure_inotify_installed()
 
-    def _make_temp_file(self, prefix=None):
-        kwargs = prefix is not None and {'prefix': prefix} or {}
+    def _make_temp_file(self, prefix=None, suffix=None):
+        kwargs = {}
+        if prefix is not None:
+            kwargs['prefix'] = prefix
+        if suffix is not None:
+            kwargs['suffix'] = suffix
         handle, path = tempfile.mkstemp(**kwargs)
         os.fdopen(handle).close()
         return path
