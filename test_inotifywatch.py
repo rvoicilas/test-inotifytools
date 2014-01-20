@@ -85,7 +85,7 @@ class TestInotifywatch(TestInotify):
 
         cmd = [self._inotify,
                "--event", "OPEN",
-               "--timeout", "5",
+               "--timeout", "1",
                "--includei", ".*?\.less$",
                lower_case_less_fd,
                upper_case_less_fd,
@@ -98,13 +98,14 @@ class TestInotifywatch(TestInotify):
 
         # Generate an open event for each monitored file.
         for path in (lower_case_less_fd, upper_case_less_fd,
-                     self._testfile):
+                random_less_fd, self._testfile):
             open(path)
 
         stdout, _ = proc.communicate()
-        os.remove(lower_case_less_fd)
-        os.remove(upper_case_less_fd)
-        os.remove(random_less_fd)
+
+        for path in (lower_case_less_fd, upper_case_less_fd,
+                random_less_fd, self._testfile):
+            os.remove(path)
 
         def _assert_event_happened(stat, path):
             total_events, open_events, filename = (
